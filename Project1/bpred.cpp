@@ -100,7 +100,7 @@ int main(int argc, char * argv[])
     PIN_Init(argc, argv);
 
     OutFile.open(KnobOutputFile.Value().c_str());
-   
+
     alwaystaken.Activate();
     twobitsbp.Activate();
     bimodal.Activate();
@@ -114,6 +114,6 @@ int main(int argc, char * argv[])
     
     // Start the program, never returns
     PIN_StartProgram();
-    
+
     return 0;
 }

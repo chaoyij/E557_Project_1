@@ -28,10 +28,10 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
-class CORRELATED
+class BIMODAL
 {
   public:
-    CORRELATED();
+    BIMODAL();
     UINT64 References() const { return _references;};
     UINT64 Predicts() const { return _predicts;};
     UINT64 Mispredicts() const { return _references - _predicts;};
@@ -43,54 +43,51 @@ class CORRELATED
   private:
     enum 
     {
-        TABLESIZE = 16, // Question: # of entry?
-        BUNDLESIZE = 1, // Question: associativity?
-        MAXTHREADS = 100,
-        GLOBALREGSIZE = 16
+        TABLESIZE = 32,
+        BUNDLESIZE = 1,
+        MAXTHREADS = 100
     };
 
     static VOID Instruction(INS ins, VOID *v);
-    static VOID CondBranch(CORRELATED *bm, INT8 * branchHistory, VOID * ip,  BOOL taken);
+    static VOID CondBranch(BIMODAL *bm, INT8 * branchHistory, VOID * ip,  BOOL taken);
     inline INT8 * HistAddress(INS ins);
 
-    INT8 _globalHistory;
-    INT8 _branchHistory[TABLESIZE*GLOBALREGSIZE][BUNDLESIZE];
+    INT8 _branchHistory[TABLESIZE][BUNDLESIZE];
     UINT64 _references, _predicts;
 };
 
-inline CORRELATED::CORRELATED()
+inline BIMODAL::BIMODAL()
 {
     _references = 0;
     _predicts = 0;
-    _globalHistory = 0;
 }
 
-inline VOID CORRELATED::Instruction(INS ins, VOID *v)
+inline VOID BIMODAL::Instruction(INS ins, VOID *v)
 {
-    CORRELATED *cr = static_cast<CORRELATED*>(v);
+    BIMODAL *bm = static_cast<BIMODAL*>(v);
     if (INS_IsBranchOrCall(ins) && INS_HasFallThrough(ins))
-        {
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
-                           (AFUNPTR)CondBranch, IARG_PTR, (void *)cr, IARG_PTR, (void *)cr->HistAddress(ins), IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
-        }
+    {
+        INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
+                        (AFUNPTR)CondBranch, IARG_PTR, (void *)bm, IARG_PTR, (void *)bm->HistAddress(ins), IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
+    }
 }
 
-inline INT8 * CORRELATED::HistAddress(INS ins)
+inline INT8 * BIMODAL::HistAddress(INS ins)
 {
     ADDRINT ip = INS_Address(ins);
-    return &(_branchHistory[_globalHistory * TABLESIZE + (ip / BUNDLESIZE) % TABLESIZE][ip % BUNDLESIZE]);
+    return &(_branchHistory[(ip / BUNDLESIZE) % TABLESIZE][ip % BUNDLESIZE]);
 }
 
-inline VOID CORRELATED::CondBranch(CORRELATED *cr, INT8 * branchHistory, 
+inline VOID BIMODAL::CondBranch(BIMODAL *bm, INT8 * branchHistory, 
 VOID * ip, BOOL taken)
 {
     INT8 history;
 
-    cr->_references++;
-  
+    bm->_references++;
+
     history = *branchHistory & 0x3;
-    cr->_predicts += (taken && history >= 2);
-    cr->_predicts += (!taken && history <= 1);
+    bm->_predicts += (taken && history >= 2);
+    bm->_predicts += (!taken && history <= 1);
 
     INT8 delta = 0;
     if (taken && history < 3)
@@ -101,13 +98,6 @@ VOID * ip, BOOL taken)
     {
         delta = -1;
     }
-  
-    *branchHistory += delta;
-    
-    // update global branch history register
-    if (taken)
-        cr->_globalHistory = ((cr->_globalHistory << 1) + 1) % GLOBALREGSIZE;
-    else
-        cr->_globalHistory = (cr->_globalHistory << 1) % GLOBALREGSIZE;
 
+    *branchHistory += delta;
 }

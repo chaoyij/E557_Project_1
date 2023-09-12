@@ -28,10 +28,10 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
-class BIMODAL
+class ALWAYSTAKEN
 {
   public:
-    BIMODAL();
+    ALWAYSTAKEN();
     UINT64 References() const { return _references;};
     UINT64 Predicts() const { return _predicts;};
     UINT64 Mispredicts() const { return _references - _predicts;};
@@ -41,64 +41,31 @@ class BIMODAL
     }
 
   private:
-    enum 
-    {
-        // TABLESIZE = 4096,
-        TABLESIZE = 32,
-        BUNDLESIZE = 1,
-        MAXTHREADS = 100
-    };
-
     static VOID Instruction(INS ins, VOID *v);
-    static VOID CondBranch(BIMODAL *bm, INT8 * branchHistory, VOID * ip,  BOOL taken);
-    inline INT8 * HistAddress(INS ins);
+    static VOID CondBranch(ALWAYSTAKEN *at, VOID * ip,  BOOL taken);
 
-    INT8 _branchHistory[TABLESIZE][BUNDLESIZE];
     UINT64 _references, _predicts;
 };
 
-inline BIMODAL::BIMODAL()
+inline ALWAYSTAKEN::ALWAYSTAKEN()
 {
     _references = 0;
     _predicts = 0;
 }
 
-inline VOID BIMODAL::Instruction(INS ins, VOID *v)
+inline VOID ALWAYSTAKEN::Instruction(INS ins, VOID *v)
 {
-    BIMODAL *bm = static_cast<BIMODAL*>(v);
+    ALWAYSTAKEN *at = static_cast<ALWAYSTAKEN*>(v);
     if (INS_IsBranchOrCall(ins) && INS_HasFallThrough(ins))
-        {
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
-                           (AFUNPTR)CondBranch, IARG_PTR, (void *)bm, IARG_PTR, (void *)bm->HistAddress(ins), IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
-        }
+    {
+        INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
+                        (AFUNPTR)CondBranch, IARG_PTR, (void *)at, IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
+    }
 }
 
-inline INT8 * BIMODAL::HistAddress(INS ins)
+inline VOID ALWAYSTAKEN::CondBranch(ALWAYSTAKEN *at, VOID * ip, BOOL taken)
 {
-    ADDRINT ip = INS_Address(ins);
-    return &(_branchHistory[(ip / BUNDLESIZE) % TABLESIZE][ip % BUNDLESIZE]);
-}
+    at->_references++;
 
-inline VOID BIMODAL::CondBranch(BIMODAL *bm, INT8 * branchHistory, 
-VOID * ip, BOOL taken)
-{
-    INT8 history;
-
-    bm->_references++;
-  
-    history = *branchHistory & 0x3;
-    bm->_predicts += (taken && history >= 2);
-    bm->_predicts += (!taken && history <= 1);
-
-    INT8 delta = 0;
-    if (taken && history < 3)
-    {
-        delta = 1;
-    }
-    if (!taken && history > 0)
-    {
-        delta = -1;
-    }
-  
-    *branchHistory += delta;
+    at->_predicts += taken;
 }

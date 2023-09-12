@@ -28,10 +28,10 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
-class ALWAYSTAKEN
+class TWOBITSBP
 {
   public:
-    ALWAYSTAKEN();
+    TWOBITSBP();
     UINT64 References() const { return _references;};
     UINT64 Predicts() const { return _predicts;};
     UINT64 Mispredicts() const { return _references - _predicts;};
@@ -42,31 +42,48 @@ class ALWAYSTAKEN
 
   private:
     static VOID Instruction(INS ins, VOID *v);
-    static VOID CondBranch(ALWAYSTAKEN *at, VOID * ip,  BOOL taken);
-
+    static VOID CondBranch(TWOBITSBP *sbp, VOID * ip,  BOOL taken);
+    
+    INT8 _branchpredictor;
     UINT64 _references, _predicts;
 };
 
-inline ALWAYSTAKEN::ALWAYSTAKEN()
+inline TWOBITSBP::TWOBITSBP()
 {
     _references = 0;
     _predicts = 0;
+    _branchpredictor = 0;
 }
 
-inline VOID ALWAYSTAKEN::Instruction(INS ins, VOID *v)
+inline VOID TWOBITSBP::Instruction(INS ins, VOID *v)
 {
-    ALWAYSTAKEN *at = static_cast<ALWAYSTAKEN*>(v);
+    TWOBITSBP *sbp = static_cast<TWOBITSBP*>(v);
     if (INS_IsBranchOrCall(ins) && INS_HasFallThrough(ins))
-        {
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
-                           (AFUNPTR)CondBranch, IARG_PTR, (void *)at, IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
-        }
+    {
+        INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
+                        (AFUNPTR)CondBranch, IARG_PTR, (void *)sbp, IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
+    }
 }
 
-inline VOID ALWAYSTAKEN::CondBranch(ALWAYSTAKEN *at, VOID * ip, BOOL taken)
+inline VOID TWOBITSBP::CondBranch(TWOBITSBP *sbp, VOID * ip, BOOL taken)
 {
+    INT8 history;
 
-    at->_references++;
-  
-    at->_predicts += (taken && 0x1 >= 1);
+    sbp->_references++;
+
+    history = sbp->_branchpredictor & 0x3;
+    sbp->_predicts += (taken && history >= 2);
+    sbp->_predicts += (!taken && history <= 1);
+
+    INT8 delta = 0;
+    if (taken && history < 3)
+    {
+        delta = 1;
+    }
+    if (!taken && history > 0)
+    {
+        delta = -1;
+    }
+
+    sbp->_branchpredictor += delta;
 }

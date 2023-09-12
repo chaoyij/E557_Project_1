@@ -28,10 +28,10 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
-class TWOBITSBP
+class CORRELATED
 {
   public:
-    TWOBITSBP();
+    CORRELATED();
     UINT64 References() const { return _references;};
     UINT64 Predicts() const { return _predicts;};
     UINT64 Mispredicts() const { return _references - _predicts;};
@@ -41,39 +41,56 @@ class TWOBITSBP
     }
 
   private:
+    enum 
+    {
+        TABLESIZE = 16,
+        BUNDLESIZE = 1,
+        MAXTHREADS = 100,
+        GLOBALREGSIZE = 16
+    };
+
     static VOID Instruction(INS ins, VOID *v);
-    static VOID CondBranch(TWOBITSBP *sbp, VOID * ip,  BOOL taken);
-    
-    INT8 _branchpredictor;
+    static VOID CondBranch(CORRELATED *bm, INT8 * branchHistory, VOID * ip,  BOOL taken);
+    inline INT8 * HistAddress(INS ins);
+
+    INT8 _globalHistory;
+    INT8 _branchHistory[TABLESIZE*GLOBALREGSIZE][BUNDLESIZE];
     UINT64 _references, _predicts;
 };
 
-inline TWOBITSBP::TWOBITSBP()
+inline CORRELATED::CORRELATED()
 {
     _references = 0;
     _predicts = 0;
-    _branchpredictor = 0;
+    _globalHistory = 0;
 }
 
-inline VOID TWOBITSBP::Instruction(INS ins, VOID *v)
+inline VOID CORRELATED::Instruction(INS ins, VOID *v)
 {
-    TWOBITSBP *sbp = static_cast<TWOBITSBP*>(v);
+    CORRELATED *cr = static_cast<CORRELATED*>(v);
     if (INS_IsBranchOrCall(ins) && INS_HasFallThrough(ins))
-        {
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
-                           (AFUNPTR)CondBranch, IARG_PTR, (void *)sbp, IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
-        }
+    {
+        INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
+                        (AFUNPTR)CondBranch, IARG_PTR, (void *)cr, IARG_PTR, (void *)cr->HistAddress(ins), IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
+    }
 }
 
-inline VOID TWOBITSBP::CondBranch(TWOBITSBP *sbp, VOID * ip, BOOL taken)
+inline INT8 * CORRELATED::HistAddress(INS ins)
+{
+    ADDRINT ip = INS_Address(ins);
+    return &(_branchHistory[_globalHistory * TABLESIZE + (ip / BUNDLESIZE) % TABLESIZE][ip % BUNDLESIZE]);
+}
+
+inline VOID CORRELATED::CondBranch(CORRELATED *cr, INT8 * branchHistory, 
+VOID * ip, BOOL taken)
 {
     INT8 history;
 
-    sbp->_references++;
+    cr->_references++;
   
-    history = sbp->_branchpredictor & 0x3;
-    sbp->_predicts += (taken && history >= 2);
-    sbp->_predicts += (!taken && history <= 1);
+    history = *branchHistory & 0x3;
+    cr->_predicts += (taken && history >= 2);
+    cr->_predicts += (!taken && history <= 1);
 
     INT8 delta = 0;
     if (taken && history < 3)
@@ -84,6 +101,16 @@ inline VOID TWOBITSBP::CondBranch(TWOBITSBP *sbp, VOID * ip, BOOL taken)
     {
         delta = -1;
     }
-  
-    sbp->_branchpredictor += delta;
+
+    *branchHistory += delta;
+
+    // update global branch history register
+    if (taken)
+    {
+        cr->_globalHistory = ((cr->_globalHistory << 1) + 1) % GLOBALREGSIZE;
+    }
+    else
+    {
+        cr->_globalHistory = (cr->_globalHistory << 1) % GLOBALREGSIZE;
+    }
 }

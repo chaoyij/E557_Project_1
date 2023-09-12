@@ -1,0 +1,21 @@
+
+===== USC EE557 Fall 2023 - Project 1 =====
+Name: Chaoyi Jiang, Jonghyun Lee
+Email: chaoyij@usc.edu, leejongh@usc.edu
+
+Always Taken Predictor
+Total Prediction: 8.53771e+06
+Prediction Rate: 0.7362
+
+2-bit Global Predictor
+Total Prediction: 8.53771e+06
+Prediction Rate: 0.777676
+
+Bimodal Predictor
+Total Prediction: 8.53771e+06
+Prediction Rate: 0.890991
+
+Correlated Predictor
+Total Prediction: 8.53771e+06
+Prediction Rate: 0.93111
+=============================================

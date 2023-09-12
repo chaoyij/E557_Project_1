@@ -43,8 +43,8 @@ class CORRELATED
   private:
     enum 
     {
-        TABLESIZE = 16, // Question: # of entry?
-        BUNDLESIZE = 1, // Question: associativity?
+        TABLESIZE = 16,
+        BUNDLESIZE = 1,
         MAXTHREADS = 100,
         GLOBALREGSIZE = 16
     };
@@ -69,10 +69,10 @@ inline VOID CORRELATED::Instruction(INS ins, VOID *v)
 {
     CORRELATED *cr = static_cast<CORRELATED*>(v);
     if (INS_IsBranchOrCall(ins) && INS_HasFallThrough(ins))
-        {
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
-                           (AFUNPTR)CondBranch, IARG_PTR, (void *)cr, IARG_PTR, (void *)cr->HistAddress(ins), IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
-        }
+    {
+        INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
+                        (AFUNPTR)CondBranch, IARG_PTR, (void *)cr, IARG_PTR, (void *)cr->HistAddress(ins), IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
+    }
 }
 
 inline INT8 * CORRELATED::HistAddress(INS ins)
@@ -101,13 +101,16 @@ VOID * ip, BOOL taken)
     {
         delta = -1;
     }
-  
+
     *branchHistory += delta;
-    
+
     // update global branch history register
     if (taken)
+    {
         cr->_globalHistory = ((cr->_globalHistory << 1) + 1) % GLOBALREGSIZE;
+    }
     else
+    {
         cr->_globalHistory = (cr->_globalHistory << 1) % GLOBALREGSIZE;
-
+    }
 }

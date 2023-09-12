@@ -43,7 +43,6 @@ class BIMODAL
   private:
     enum 
     {
-        // TABLESIZE = 4096,
         TABLESIZE = 32,
         BUNDLESIZE = 1,
         MAXTHREADS = 100
@@ -67,10 +66,10 @@ inline VOID BIMODAL::Instruction(INS ins, VOID *v)
 {
     BIMODAL *bm = static_cast<BIMODAL*>(v);
     if (INS_IsBranchOrCall(ins) && INS_HasFallThrough(ins))
-        {
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
-                           (AFUNPTR)CondBranch, IARG_PTR, (void *)bm, IARG_PTR, (void *)bm->HistAddress(ins), IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
-        }
+    {
+        INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
+                        (AFUNPTR)CondBranch, IARG_PTR, (void *)bm, IARG_PTR, (void *)bm->HistAddress(ins), IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
+    }
 }
 
 inline INT8 * BIMODAL::HistAddress(INS ins)
@@ -85,7 +84,7 @@ VOID * ip, BOOL taken)
     INT8 history;
 
     bm->_references++;
-  
+
     history = *branchHistory & 0x3;
     bm->_predicts += (taken && history >= 2);
     bm->_predicts += (!taken && history <= 1);
@@ -99,6 +98,6 @@ VOID * ip, BOOL taken)
     {
         delta = -1;
     }
-  
+
     *branchHistory += delta;
 }

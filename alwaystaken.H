@@ -57,16 +57,15 @@ inline VOID ALWAYSTAKEN::Instruction(INS ins, VOID *v)
 {
     ALWAYSTAKEN *at = static_cast<ALWAYSTAKEN*>(v);
     if (INS_IsBranchOrCall(ins) && INS_HasFallThrough(ins))
-        {
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
-                           (AFUNPTR)CondBranch, IARG_PTR, (void *)at, IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
-        }
+    {
+        INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
+                        (AFUNPTR)CondBranch, IARG_PTR, (void *)at, IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
+    }
 }
 
 inline VOID ALWAYSTAKEN::CondBranch(ALWAYSTAKEN *at, VOID * ip, BOOL taken)
 {
-
     at->_references++;
-  
-    at->_predicts += (taken && 0x1 >= 1);
+
+    at->_predicts += taken;
 }

@@ -59,10 +59,10 @@ inline VOID TWOBITSBP::Instruction(INS ins, VOID *v)
 {
     TWOBITSBP *sbp = static_cast<TWOBITSBP*>(v);
     if (INS_IsBranchOrCall(ins) && INS_HasFallThrough(ins))
-        {
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
-                           (AFUNPTR)CondBranch, IARG_PTR, (void *)sbp, IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
-        }
+    {
+        INS_InsertPredicatedCall(ins, IPOINT_BEFORE, 
+                        (AFUNPTR)CondBranch, IARG_PTR, (void *)sbp, IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_END);
+    }
 }
 
 inline VOID TWOBITSBP::CondBranch(TWOBITSBP *sbp, VOID * ip, BOOL taken)
@@ -70,7 +70,7 @@ inline VOID TWOBITSBP::CondBranch(TWOBITSBP *sbp, VOID * ip, BOOL taken)
     INT8 history;
 
     sbp->_references++;
-  
+
     history = sbp->_branchpredictor & 0x3;
     sbp->_predicts += (taken && history >= 2);
     sbp->_predicts += (!taken && history <= 1);
@@ -84,6 +84,6 @@ inline VOID TWOBITSBP::CondBranch(TWOBITSBP *sbp, VOID * ip, BOOL taken)
     {
         delta = -1;
     }
-  
+
     sbp->_branchpredictor += delta;
 }
